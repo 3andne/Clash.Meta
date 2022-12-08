@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultURLTestTimeout = time.Second * 5
+	defaultURLTestURL     = "https://www.gstatic.com/generate_204"
 )
 
 type HealthCheckOption struct {
@@ -35,10 +36,7 @@ type HealthCheck struct {
 func (hc *HealthCheck) process() {
 	ticker := time.NewTicker(time.Duration(hc.interval) * time.Second)
 
-	go func() {
-		time.Sleep(30 * time.Second)
-		hc.lazyCheck()
-	}()
+	go hc.check()
 
 	for {
 		select {
@@ -53,7 +51,7 @@ func (hc *HealthCheck) process() {
 
 func (hc *HealthCheck) lazyCheck() bool {
 	now := time.Now().Unix()
-	if !hc.lazy || now-hc.lastTouch.Load() < int64(hc.interval) {
+	if !suspended && !hc.lazy || now-hc.lastTouch.Load() < int64(hc.interval) {
 		hc.check()
 		return true
 	} else {
@@ -75,13 +73,18 @@ func (hc *HealthCheck) touch() {
 }
 
 func (hc *HealthCheck) check() {
+
+	if len(hc.proxies) == 0 {
+		return
+	}
+
 	_, _, _ = hc.singleDo.Do(func() (struct{}, error) {
 		id := ""
 		if uid, err := uuid.NewV4(); err == nil {
 			id = uid.String()
 		}
 		log.Debugln("Start New Health Checking {%s}", id)
-		b, _ := batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](10))
+		b, _ := batch.New[bool](context.Background())
 		for _, proxy := range hc.proxies {
 			p := proxy
 			b.Go(p.Name(), func() (bool, error) {
@@ -105,6 +108,9 @@ func (hc *HealthCheck) close() {
 }
 
 func NewHealthCheck(proxies []C.Proxy, url string, interval uint, lazy bool) *HealthCheck {
+	if url == "" {
+		url = defaultURLTestURL
+	}
 	return &HealthCheck{
 		proxies:   proxies,
 		url:       url,

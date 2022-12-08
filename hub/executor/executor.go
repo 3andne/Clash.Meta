@@ -191,7 +191,6 @@ func updateDNS(c *config.DNS, generalIPv6 bool) {
 
 	resolver.DefaultResolver = r
 	resolver.DefaultHostMapper = m
-	resolver.DefaultLocalServer = dns.NewLocalServer(r, m)
 
 	if pr.HasProxyServer() {
 		resolver.ProxyServerHostResolver = pr
