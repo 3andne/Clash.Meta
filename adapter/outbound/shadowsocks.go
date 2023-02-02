@@ -12,6 +12,7 @@ import (
 	"github.com/Dreamacro/clash/component/dialer"
 	tlsC "github.com/Dreamacro/clash/component/tls"
 	C "github.com/Dreamacro/clash/constant"
+	"github.com/Dreamacro/clash/transport/restls"
 	"github.com/Dreamacro/clash/transport/shadowtls"
 	obfs "github.com/Dreamacro/clash/transport/simple-obfs"
 	"github.com/Dreamacro/clash/transport/socks5"
@@ -35,6 +36,7 @@ type ShadowSocks struct {
 	v2rayOption     *v2rayObfs.Option
 	shadowTLSOption *shadowTLSOption
 	tlsConfig       *tls.Config
+	restlsOption    *restlsOption
 }
 
 type ShadowSocksOption struct {
@@ -73,6 +75,13 @@ type shadowTLSOption struct {
 	SkipCertVerify bool   `obfs:"skip-cert-verify,omitempty"`
 }
 
+type restlsOption struct {
+	Password    string `obfs:"password"`
+	Host        string `obfs:"host"`
+	VersionHint string `obfs:"version-hint"`
+	CurveIDHint string `obfs:"curve-id-hint,omitempty"`
+}
+
 // StreamConn implements C.ProxyAdapter
 func (ss *ShadowSocks) StreamConn(c net.Conn, metadata *C.Metadata) (net.Conn, error) {
 	switch ss.obfsMode {
@@ -89,6 +98,12 @@ func (ss *ShadowSocks) StreamConn(c net.Conn, metadata *C.Metadata) (net.Conn, e
 		}
 	case shadowtls.Mode:
 		c = shadowtls.NewShadowTLS(c, ss.shadowTLSOption.Password, ss.tlsConfig)
+	case restls.Mode:
+		var err error
+		c, err = restls.NewRestls(c, ss.restlsOption.Host, ss.restlsOption.Password, ss.restlsOption.VersionHint, ss.restlsOption.CurveIDHint)
+		if err != nil {
+			return nil, fmt.Errorf("%s (restls) connect error: %w", ss.addr, err)
+		}
 	}
 	if metadata.NetWork == C.UDP && ss.option.UDPOverTCP {
 		return ss.method.DialConn(c, M.ParseSocksaddr(uot.UOTMagicAddress+":443"))
@@ -172,6 +187,7 @@ func NewShadowSocks(option ShadowSocksOption) (*ShadowSocks, error) {
 	var v2rayOption *v2rayObfs.Option
 	var obfsOption *simpleObfsOption
 	var shadowTLSOpt *shadowTLSOption
+	var restlsOpt *restlsOption
 	var tlsConfig *tls.Config
 	obfsMode := ""
 
@@ -229,6 +245,12 @@ func NewShadowSocks(option ShadowSocksOption) (*ShadowSocks, error) {
 				return nil, err
 			}
 		}
+	} else if option.Plugin == restls.Mode {
+		obfsMode = restls.Mode
+		restlsOpt = &restlsOption{}
+		if err := decoder.Decode(option.PluginOpts, restlsOpt); err != nil {
+			return nil, fmt.Errorf("ss %s initialize restls-plugin error: %w", addr, err)
+		}
 	}
 
 	return &ShadowSocks{
@@ -248,6 +270,7 @@ func NewShadowSocks(option ShadowSocksOption) (*ShadowSocks, error) {
 		v2rayOption:     v2rayOption,
 		obfsOption:      obfsOption,
 		shadowTLSOption: shadowTLSOpt,
+		restlsOption:    restlsOpt,
 		tlsConfig:       tlsConfig,
 	}, nil
 }

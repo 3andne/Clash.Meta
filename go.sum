@@ -1,3 +1,5 @@
+github.com/3andne/restls-client-go v0.0.1 h1:uGg5AWinvGQTIvJ6MWn2o+oJ10EfG3eNJJnqzjGUPy8=
+github.com/3andne/restls-client-go v0.0.1/go.mod h1:PCftob00fznN6C4G3doLmZiQy6rdTOeyeG6T50QaYfk=
 github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da h1:KjTM2ks9d14ZYCvmHS9iAKVt9AyzRSqNU1qabPih5BY=
 github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da/go.mod h1:eHEWzANqSiWQsof+nXEI9bUVUyV6F53Fp89EuCh2EAA=
 github.com/ajg/form v1.5.1 h1:t9c7v8JUKu/XxOGBU0yjNpaMloxGEJhUkqFRq0ibGeU=
@@ -121,7 +123,7 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
 github.com/refraction-networking/utls v1.2.0 h1:U5f8wkij2NVinfLuJdFP3gCMwIHs+EzvhxmYdXgiapo=
 github.com/refraction-networking/utls v1.2.0/go.mod h1:NPq+cVqzH7D1BeOkmOcb5O/8iVewAsiVt2x1/eO0hgQ=
-github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
+github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/sagernet/abx-go v0.0.0-20220819185957-dba1257d738e h1:5CFRo8FJbCuf5s/eTBdZpmMbn8Fe2eSMLNAYfKanA34=
 github.com/sagernet/abx-go v0.0.0-20220819185957-dba1257d738e/go.mod h1:qbt0dWObotCfcjAJJ9AxtFPNSDUfZF+6dCpgKEOBn/g=
 github.com/sagernet/go-tun2socks v1.16.12-0.20220818015926-16cb67876a61 h1:5+m7c6AkmAylhauulqN/c5dnh8/KssrE9c93TQrXldA=
