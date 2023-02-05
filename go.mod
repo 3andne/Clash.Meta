@@ -49,7 +49,7 @@ require (
 )
 
 require (
-	github.com/3andne/restls-client-go v0.0.1
+	github.com/3andne/restls-client-go v0.0.2
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

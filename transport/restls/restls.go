@@ -1,7 +1,7 @@
 package restls
 
 import (
-	"crypto/sha1"
+	"crypto/sha512"
 	"fmt"
 	"net"
 
@@ -43,7 +43,7 @@ var versionMap = map[string]uint8{
 
 // NewRestls return a Restls Connection
 func NewRestls(conn net.Conn, serverName string, password string, versionHintString string, CurveIDHintString string) (net.Conn, error) {
-	password_byte := sha1.New()
+	password_byte := sha512.New()
 	password_byte.Write([]byte(password))
 	versionHint, ok := versionMap[versionHintString]
 	if !ok {
