@@ -18,6 +18,24 @@
   </a>
 </p>
 
+## Restls
+
+To define a Restls proxy:
+
+```
+- name: restls
+  type: ss
+  server: [YOUR_SERVER_IP]
+  port: 443
+  cipher: chacha20-ietf-poly1305
+  password: [YOUR_SS_PASSWORD]
+  plugin: restls
+  plugin-opts:
+    host: "www.microsoft.com" # Must be a TLS 1.3 server
+    password: [YOUR_RESTLS_PASSWORD]
+    version-hint: "tls13"
+```
+
 ## Features
 
 - Local HTTP/HTTPS/SOCKS server with authentication support
