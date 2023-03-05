@@ -82,6 +82,11 @@ func UDPIn() chan<- C.PacketAdapter {
 	return udpQueue
 }
 
+// NatTable return nat table
+func NatTable() C.NatTable {
+	return natTable
+}
+
 // Rules return all rules
 func Rules() []C.Rule {
 	return rules
@@ -337,9 +342,10 @@ func handleUDPConn(packet C.PacketAdapter) {
 		}
 
 		oAddr := metadata.DstIP
+		natTable.Set(key, pc)
+
 		go handleUDPToLocal(packet, pc, key, oAddr, fAddr)
 
-		natTable.Set(key, pc)
 		handle()
 	}()
 }

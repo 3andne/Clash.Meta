@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
+	"time"
 
 	"github.com/Dreamacro/clash/common/buf"
 	N "github.com/Dreamacro/clash/common/net"
@@ -21,6 +23,10 @@ type Conn struct {
 	id       *uuid.UUID
 	addons   *Addons
 	received bool
+
+	handshake      chan struct{}
+	handshakeMutex sync.Mutex
+	err            error
 }
 
 func (vc *Conn) Read(b []byte) (int, error) {
@@ -47,15 +53,58 @@ func (vc *Conn) ReadBuffer(buffer *buf.Buffer) error {
 	return vc.ExtendedConn.ReadBuffer(buffer)
 }
 
-func (vc *Conn) sendRequest() (err error) {
+func (vc *Conn) Write(p []byte) (int, error) {
+	select {
+	case <-vc.handshake:
+	default:
+		if vc.sendRequest(p) {
+			if vc.err != nil {
+				return 0, vc.err
+			}
+			return len(p), vc.err
+		}
+		if vc.err != nil {
+			return 0, vc.err
+		}
+	}
+	return vc.ExtendedConn.Write(p)
+}
+
+func (vc *Conn) WriteBuffer(buffer *buf.Buffer) error {
+	select {
+	case <-vc.handshake:
+	default:
+		if vc.sendRequest(buffer.Bytes()) {
+			return vc.err
+		}
+		if vc.err != nil {
+			return vc.err
+		}
+	}
+	return vc.ExtendedConn.WriteBuffer(buffer)
+}
+
+func (vc *Conn) sendRequest(p []byte) bool {
+	vc.handshakeMutex.Lock()
+	defer vc.handshakeMutex.Unlock()
+
+	select {
+	case <-vc.handshake:
+		// The handshake has been completed before.
+		// So return false to remind the caller.
+		return false
+	default:
+	}
+	defer close(vc.handshake)
+
 	requestLen := 1  // protocol version
 	requestLen += 16 // UUID
 	requestLen += 1  // addons length
 	var addonsBytes []byte
 	if vc.addons != nil {
-		addonsBytes, err = proto.Marshal(vc.addons)
-		if err != nil {
-			return err
+		addonsBytes, vc.err = proto.Marshal(vc.addons)
+		if vc.err != nil {
+			return true
 		}
 	}
 	requestLen += len(addonsBytes)
@@ -65,6 +114,8 @@ func (vc *Conn) sendRequest() (err error) {
 		requestLen += 1 // addr type
 		requestLen += len(vc.dst.Addr)
 	}
+	requestLen += len(p)
+
 	_buffer := buf.StackNewSize(requestLen)
 	defer buf.KeepAlive(_buffer)
 	buffer := buf.Dup(_buffer)
@@ -93,25 +144,26 @@ func (vc *Conn) sendRequest() (err error) {
 		)
 	}
 
-	_, err = vc.ExtendedConn.Write(buffer.Bytes())
-	return
+	buf.Must(buf.Error(buffer.Write(p)))
+
+	_, vc.err = vc.ExtendedConn.Write(buffer.Bytes())
+	return true
 }
 
 func (vc *Conn) recvResponse() error {
-	var err error
 	var buf [1]byte
-	_, err = io.ReadFull(vc.ExtendedConn, buf[:])
-	if err != nil {
-		return err
+	_, vc.err = io.ReadFull(vc.ExtendedConn, buf[:])
+	if vc.err != nil {
+		return vc.err
 	}
 
 	if buf[0] != Version {
 		return errors.New("unexpected response version")
 	}
 
-	_, err = io.ReadFull(vc.ExtendedConn, buf[:])
-	if err != nil {
-		return err
+	_, vc.err = io.ReadFull(vc.ExtendedConn, buf[:])
+	if vc.err != nil {
+		return vc.err
 	}
 
 	length := int64(buf[0])
@@ -132,6 +184,7 @@ func newConn(conn net.Conn, client *Client, dst *DstAddr) (*Conn, error) {
 		ExtendedConn: N.NewExtendedConn(conn),
 		id:           client.uuid,
 		dst:          dst,
+		handshake:    make(chan struct{}),
 	}
 
 	if !dst.UDP && client.Addons != nil {
@@ -155,8 +208,12 @@ func newConn(conn net.Conn, client *Client, dst *DstAddr) (*Conn, error) {
 		}
 	}
 
-	if err := c.sendRequest(); err != nil {
-		return nil, err
-	}
+	go func() {
+		select {
+		case <-c.handshake:
+		case <-time.After(200 * time.Millisecond):
+			c.sendRequest(nil)
+		}
+	}()
 	return c, nil
 }

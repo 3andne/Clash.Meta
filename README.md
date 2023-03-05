@@ -49,7 +49,7 @@ To define a Restls proxy:
 
 ## Wiki
 
-Documentation is available on [Clash.Meta Wiki](https://docs.metacubex.one/).
+Documentation and configuring examples are available on [wiki](https://github.com/MetaCubeX/Clash.Meta/wiki) and [Clash.Meta Wiki](https://docs.metacubex.one/).
 
 ## Build
 
@@ -80,9 +80,9 @@ If you need gvisor for tun stack, build with:
 go build -tags with_gvisor
 ```
 
-## Advanced usage of this fork
+<!-- ## Advanced usage of this fork -->
 
-### DNS configuration
+<!-- ### DNS configuration
 
 Support `geosite` with `fallback-filter`.
 
@@ -293,11 +293,11 @@ proxies:
     # max-udp-relay-packet-size: 1500
     # fast-open: true
     # skip-cert-verify: true
-```
+``` -->
 
 ### IPTABLES configuration
 
-Work on Linux OS who's supported `iptables`
+Work on Linux OS which supported `iptables`
 
 ```yaml
 # Enable the TPROXY listener

@@ -4,17 +4,16 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+
 	"net"
 	"net/netip"
 	"net/url"
 	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	P "github.com/Dreamacro/clash/component/process"
-	SNIFF "github.com/Dreamacro/clash/component/sniffer"
 
 	"github.com/Dreamacro/clash/adapter"
 	"github.com/Dreamacro/clash/adapter/outbound"
@@ -26,6 +25,9 @@ import (
 	"github.com/Dreamacro/clash/component/fakeip"
 	"github.com/Dreamacro/clash/component/geodata"
 	"github.com/Dreamacro/clash/component/geodata/router"
+	P "github.com/Dreamacro/clash/component/process"
+	SNIFF "github.com/Dreamacro/clash/component/sniffer"
+	tlsC "github.com/Dreamacro/clash/component/tls"
 	"github.com/Dreamacro/clash/component/trie"
 	C "github.com/Dreamacro/clash/constant"
 	providerTypes "github.com/Dreamacro/clash/constant/provider"
@@ -45,18 +47,19 @@ import (
 type General struct {
 	Inbound
 	Controller
-	Mode            T.TunnelMode `json:"mode"`
-	UnifiedDelay    bool
-	LogLevel        log.LogLevel      `json:"log-level"`
-	IPv6            bool              `json:"ipv6"`
-	Interface       string            `json:"interface-name"`
-	RoutingMark     int               `json:"-"`
-	GeodataMode     bool              `json:"geodata-mode"`
-	GeodataLoader   string            `json:"geodata-loader"`
-	TCPConcurrent   bool              `json:"tcp-concurrent"`
-	FindProcessMode P.FindProcessMode `json:"find-process-mode"`
-	Sniffing        bool              `json:"sniffing"`
-	EBpf            EBpf              `json:"-"`
+	Mode                    T.TunnelMode `json:"mode"`
+	UnifiedDelay            bool
+	LogLevel                log.LogLevel      `json:"log-level"`
+	IPv6                    bool              `json:"ipv6"`
+	Interface               string            `json:"interface-name"`
+	RoutingMark             int               `json:"-"`
+	GeodataMode             bool              `json:"geodata-mode"`
+	GeodataLoader           string            `json:"geodata-loader"`
+	TCPConcurrent           bool              `json:"tcp-concurrent"`
+	FindProcessMode         P.FindProcessMode `json:"find-process-mode"`
+	Sniffing                bool              `json:"sniffing"`
+	EBpf                    EBpf              `json:"-"`
+	GlobalClientFingerprint string            `json:"global-client-fingerprint"`
 }
 
 // Inbound config
@@ -97,7 +100,7 @@ type DNS struct {
 	DefaultNameserver     []dns.NameServer `yaml:"default-nameserver"`
 	FakeIPRange           *fakeip.Pool
 	Hosts                 *trie.DomainTrie[netip.Addr]
-	NameServerPolicy      map[string]dns.NameServer
+	NameServerPolicy      map[string][]dns.NameServer
 	ProxyServerNameserver []dns.NameServer
 }
 
@@ -181,7 +184,7 @@ type RawDNS struct {
 	FakeIPRange           string            `yaml:"fake-ip-range"`
 	FakeIPFilter          []string          `yaml:"fake-ip-filter"`
 	DefaultNameserver     []string          `yaml:"default-nameserver"`
-	NameServerPolicy      map[string]string `yaml:"nameserver-policy"`
+	NameServerPolicy      map[string]any    `yaml:"nameserver-policy"`
 	ProxyServerNameserver []string          `yaml:"proxy-server-nameserver"`
 }
 
@@ -233,32 +236,33 @@ type RawTuicServer struct {
 }
 
 type RawConfig struct {
-	Port                  int               `yaml:"port"`
-	SocksPort             int               `yaml:"socks-port"`
-	RedirPort             int               `yaml:"redir-port"`
-	TProxyPort            int               `yaml:"tproxy-port"`
-	MixedPort             int               `yaml:"mixed-port"`
-	ShadowSocksConfig     string            `yaml:"ss-config"`
-	VmessConfig           string            `yaml:"vmess-config"`
-	InboundTfo            bool              `yaml:"inbound-tfo"`
-	Authentication        []string          `yaml:"authentication"`
-	AllowLan              bool              `yaml:"allow-lan"`
-	BindAddress           string            `yaml:"bind-address"`
-	Mode                  T.TunnelMode      `yaml:"mode"`
-	UnifiedDelay          bool              `yaml:"unified-delay"`
-	LogLevel              log.LogLevel      `yaml:"log-level"`
-	IPv6                  bool              `yaml:"ipv6"`
-	ExternalController    string            `yaml:"external-controller"`
-	ExternalControllerTLS string            `yaml:"external-controller-tls"`
-	ExternalUI            string            `yaml:"external-ui"`
-	Secret                string            `yaml:"secret"`
-	Interface             string            `yaml:"interface-name"`
-	RoutingMark           int               `yaml:"routing-mark"`
-	Tunnels               []LC.Tunnel       `yaml:"tunnels"`
-	GeodataMode           bool              `yaml:"geodata-mode"`
-	GeodataLoader         string            `yaml:"geodata-loader"`
-	TCPConcurrent         bool              `yaml:"tcp-concurrent" json:"tcp-concurrent"`
-	FindProcessMode       P.FindProcessMode `yaml:"find-process-mode" json:"find-process-mode"`
+	Port                    int               `yaml:"port"`
+	SocksPort               int               `yaml:"socks-port"`
+	RedirPort               int               `yaml:"redir-port"`
+	TProxyPort              int               `yaml:"tproxy-port"`
+	MixedPort               int               `yaml:"mixed-port"`
+	ShadowSocksConfig       string            `yaml:"ss-config"`
+	VmessConfig             string            `yaml:"vmess-config"`
+	InboundTfo              bool              `yaml:"inbound-tfo"`
+	Authentication          []string          `yaml:"authentication"`
+	AllowLan                bool              `yaml:"allow-lan"`
+	BindAddress             string            `yaml:"bind-address"`
+	Mode                    T.TunnelMode      `yaml:"mode"`
+	UnifiedDelay            bool              `yaml:"unified-delay"`
+	LogLevel                log.LogLevel      `yaml:"log-level"`
+	IPv6                    bool              `yaml:"ipv6"`
+	ExternalController      string            `yaml:"external-controller"`
+	ExternalControllerTLS   string            `yaml:"external-controller-tls"`
+	ExternalUI              string            `yaml:"external-ui"`
+	Secret                  string            `yaml:"secret"`
+	Interface               string            `yaml:"interface-name"`
+	RoutingMark             int               `yaml:"routing-mark"`
+	Tunnels                 []LC.Tunnel       `yaml:"tunnels"`
+	GeodataMode             bool              `yaml:"geodata-mode"`
+	GeodataLoader           string            `yaml:"geodata-loader"`
+	TCPConcurrent           bool              `yaml:"tcp-concurrent" json:"tcp-concurrent"`
+	FindProcessMode         P.FindProcessMode `yaml:"find-process-mode" json:"find-process-mode"`
+	GlobalClientFingerprint string            `yaml:"global-client-fingerprint"`
 
 	Sniffer       RawSniffer                `yaml:"sniffer"`
 	ProxyProvider map[string]map[string]any `yaml:"proxy-providers"`
@@ -409,6 +413,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 			Ports:           []string{},
 			ForceDnsMapping: true,
 			ParsePureIp:     true,
+			OverrideDest:    true,
 		},
 		Profile: Profile{
 			StoreSelected: true,
@@ -517,6 +522,11 @@ func ParseRawConfig(rawCfg *RawConfig) (*Config, error) {
 	elapsedTime := time.Since(startTime) / time.Millisecond                     // duration in ms
 	log.Infoln("Initial configuration complete, total time: %dms", elapsedTime) //Segment finished in xxm
 
+	if len(config.General.GlobalClientFingerprint) != 0 {
+		log.Debugln("GlobalClientFingerprint:%s", config.General.GlobalClientFingerprint)
+		tlsC.SetGlobalUtlsClient(config.General.GlobalClientFingerprint)
+	}
+
 	return config, nil
 }
 
@@ -550,17 +560,18 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 			Secret:                cfg.Secret,
 			ExternalControllerTLS: cfg.ExternalControllerTLS,
 		},
-		UnifiedDelay:    cfg.UnifiedDelay,
-		Mode:            cfg.Mode,
-		LogLevel:        cfg.LogLevel,
-		IPv6:            cfg.IPv6,
-		Interface:       cfg.Interface,
-		RoutingMark:     cfg.RoutingMark,
-		GeodataMode:     cfg.GeodataMode,
-		GeodataLoader:   cfg.GeodataLoader,
-		TCPConcurrent:   cfg.TCPConcurrent,
-		FindProcessMode: cfg.FindProcessMode,
-		EBpf:            cfg.EBpf,
+		UnifiedDelay:            cfg.UnifiedDelay,
+		Mode:                    cfg.Mode,
+		LogLevel:                cfg.LogLevel,
+		IPv6:                    cfg.IPv6,
+		Interface:               cfg.Interface,
+		RoutingMark:             cfg.RoutingMark,
+		GeodataMode:             cfg.GeodataMode,
+		GeodataLoader:           cfg.GeodataLoader,
+		TCPConcurrent:           cfg.TCPConcurrent,
+		FindProcessMode:         cfg.FindProcessMode,
+		EBpf:                    cfg.EBpf,
+		GlobalClientFingerprint: cfg.GlobalClientFingerprint,
 	}, nil
 }
 
@@ -879,29 +890,24 @@ func parseNameServer(servers []string, preferH3 bool) ([]dns.NameServer, error) 
 			addr, err = hostWithDefaultPort(u.Host, "853")
 			dnsNetType = "tcp-tls" // DNS over TLS
 		case "https":
-			host := u.Host
-			proxyAdapter = ""
-			if _, _, err := net.SplitHostPort(host); err != nil && strings.Contains(err.Error(), "missing port in address") {
-				host = net.JoinHostPort(host, "443")
-			} else {
-				if err != nil {
-					return nil, err
-				}
-			}
-			clearURL := url.URL{Scheme: "https", Host: host, Path: u.Path}
-			addr = clearURL.String()
-			dnsNetType = "https" // DNS over HTTPS
-			if len(u.Fragment) != 0 {
-				for _, s := range strings.Split(u.Fragment, "&") {
-					arr := strings.Split(s, "=")
-					if len(arr) == 0 {
-						continue
-					} else if len(arr) == 1 {
-						proxyAdapter = arr[0]
-					} else if len(arr) == 2 {
-						params[arr[0]] = arr[1]
-					} else {
-						params[arr[0]] = strings.Join(arr[1:], "=")
+			addr, err = hostWithDefaultPort(u.Host, "443")
+			if err == nil {
+				proxyAdapter = ""
+				clearURL := url.URL{Scheme: "https", Host: addr, Path: u.Path}
+				addr = clearURL.String()
+				dnsNetType = "https" // DNS over HTTPS
+				if len(u.Fragment) != 0 {
+					for _, s := range strings.Split(u.Fragment, "&") {
+						arr := strings.Split(s, "=")
+						if len(arr) == 0 {
+							continue
+						} else if len(arr) == 1 {
+							proxyAdapter = arr[0]
+						} else if len(arr) == 2 {
+							params[arr[0]] = arr[1]
+						} else {
+							params[arr[0]] = strings.Join(arr[1:], "=")
+						}
 					}
 				}
 			}
@@ -952,18 +958,35 @@ func parsePureDNSServer(server string) string {
 		}
 	}
 }
-func parseNameServerPolicy(nsPolicy map[string]string, preferH3 bool) (map[string]dns.NameServer, error) {
-	policy := map[string]dns.NameServer{}
+func parseNameServerPolicy(nsPolicy map[string]any, preferH3 bool) (map[string][]dns.NameServer, error) {
+	policy := map[string][]dns.NameServer{}
 
 	for domain, server := range nsPolicy {
-		nameservers, err := parseNameServer([]string{server}, preferH3)
+		var (
+			nameservers []dns.NameServer
+			err         error
+		)
+
+		switch reflect.TypeOf(server).Kind() {
+		case reflect.Slice, reflect.Array:
+			origin := reflect.ValueOf(server)
+			servers := make([]string, 0)
+			for i := 0; i < origin.Len(); i++ {
+				servers = append(servers, fmt.Sprintf("%v", origin.Index(i)))
+			}
+			nameservers, err = parseNameServer(servers, preferH3)
+		case reflect.String:
+			nameservers, err = parseNameServer([]string{fmt.Sprintf("%v", server)}, preferH3)
+		default:
+			return nil, errors.New("server format error, must be string or array")
+		}
 		if err != nil {
 			return nil, err
 		}
 		if _, valid := trie.ValidAndSplitDomain(domain); !valid {
 			return nil, fmt.Errorf("DNS ResoverRule invalid domain: %s", domain)
 		}
-		policy[domain] = nameservers[0]
+		policy[domain] = nameservers
 	}
 
 	return policy, nil
@@ -989,6 +1012,7 @@ func parseFallbackGeoSite(countries []string, rules []C.Rule) ([]*router.DomainM
 		if err := geodata.InitGeoSite(); err != nil {
 			return nil, fmt.Errorf("can't initial GeoSite: %s", err)
 		}
+		log.Warnln("replace fallback-filter.geosite with nameserver-policy, it will be removed in the future")
 	}
 
 	for _, country := range countries {
