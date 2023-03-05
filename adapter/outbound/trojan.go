@@ -77,6 +77,11 @@ func (t *Trojan) plainStream(c net.Conn) (net.Conn, error) {
 // StreamConn implements C.ProxyAdapter
 func (t *Trojan) StreamConn(c net.Conn, metadata *C.Metadata) (net.Conn, error) {
 	var err error
+
+	if tlsC.HaveGlobalFingerprint() && len(t.option.ClientFingerprint) == 0 {
+		t.option.ClientFingerprint = tlsC.GetGlobalFingerprint()
+	}
+
 	if t.transport != nil {
 		c, err = gun.StreamGunWithConn(c, t.gunTLSConfig, t.gunConfig)
 	} else {

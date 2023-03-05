@@ -135,7 +135,7 @@ type Metadata struct {
 	SpecialRules string     `json:"specialRules"`
 	RemoteDst    string     `json:"remoteDestination"`
 	// Only domain rule
-	SniffHost 	 string
+	SniffHost string `json:"sniffHost"`
 }
 
 func (m *Metadata) RemoteAddress() string {
@@ -148,7 +148,7 @@ func (m *Metadata) SourceAddress() string {
 
 func (m *Metadata) SourceDetail() string {
 	if m.Type == INNER {
-		return fmt.Sprintf("[%s]", ClashName)
+		return fmt.Sprintf("%s", ClashName)
 	}
 
 	switch {

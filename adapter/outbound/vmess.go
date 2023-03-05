@@ -87,6 +87,11 @@ type WSOptions struct {
 // StreamConn implements C.ProxyAdapter
 func (v *Vmess) StreamConn(c net.Conn, metadata *C.Metadata) (net.Conn, error) {
 	var err error
+
+	if tlsC.HaveGlobalFingerprint() && (len(v.option.ClientFingerprint) == 0) {
+		v.option.ClientFingerprint = tlsC.GetGlobalFingerprint()
+	}
+
 	switch v.option.Network {
 	case "ws":
 
